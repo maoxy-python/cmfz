@@ -157,3 +157,6 @@ VALID_URL_LIST = [
             '/user/arrive/',
             '/admin/.*',
         ]
+
+# 菜单的权限
+MENU_SESSION_KEY = "menu_url_list"
