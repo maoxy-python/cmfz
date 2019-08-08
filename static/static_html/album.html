@@ -1,0 +1,220 @@
+<script>
+    $(function () {
+        $('#albumTable').jqGrid({
+            url: "/album/getAllAlbum",
+            editurl: "${app}/album/editAlbum",
+            styleUI: "Bootstrap",
+            datatype: "JSON",
+            autowidth: true,
+            height: 500,
+            viewrecords: true,
+            pager: "#albumPager",
+            rowNum: 2,
+            rowList: [5, 10, 15],
+            rownumbers: true,
+            multiselect: true,
+            colNames: ["编号", "标题", "分数", "作者", "播音员", "章节数", "专辑简介", "状态", "发行时间", "上传时间", "插图"],
+            colModel: [
+                {name: "id", hidden: true},
+                {name: "title", editable: true, editrules: {required: true}},
+                {name: "score", editable: true, editrules: {required: true, number: true, minValue: 1, maxValue: 10}},
+                {name: "author", editable: true, editrules: {required: true}},
+                {name: "broadcast", editable: true, editrules: {required: true}},
+                {name: "count", editable: true, editrules: {required: true, number: true, minValue: 1}},
+                {name: "brief", editable: true, editrules: {required: true}},
+                {
+                    name: "status", editable: true, edittype: "select",
+                    editoptions: {
+                        value: "1:展示;2:不展示"
+                    }
+                },
+                {name: "publishDate", editable: true, edittype: "date", editrules: {required: true}},
+                {
+                    name: "createDate", editable: true, edittype: "date", editrules: {required: true}
+                },
+                {
+                    name: "cover", editable: true, edittype: "file", editoptions: {enctype: "multipart/form-data"},
+                    formatter: function (cellvalue, options, rowObject) {
+                        return "<img src='/static/upload/" + cellvalue + "' style='height: 80px;width: 150px'/>";
+                    }
+                },
+            ],
+            subGrid: true, //开启子表格的支持
+            subGridRowExpanded: function (subGridId, albumId) {
+                console.log(subGridId, albumId)
+                addSubGrid(subGridId, albumId);
+            }
+
+        }).jqGrid("navGrid", "#albumPager", {});
+    });
+
+    function addSubGrid(subGridId, albumId) {
+        sunGiridTableId = subGridId + "table";// (3)根据subgrid_id定义对应的子表格的table的id
+        subGridPagerId = subGridId + "pager" // (4)根据subgrid_id定义对应的子表格的pager的id
+        $('#' + subGridId).html(
+            "<table id='" + sunGiridTableId + "'></table><div id='" + subGridPagerId + "'></div>"
+        );
+        $('#' + sunGiridTableId).jqGrid({
+            url: "/album/getChapter?albumId=" + albumId,
+            editurl: "/album/editChapter?albumId=" + albumId,
+            styleUI: "Bootstrap",
+            datatype: "JSON",
+            autowidth: true,
+            viewrecords: true,
+            pager: "#" + subGridPagerId,
+            caption: "章节管理",
+            toolbar: [true, 'top'],
+            rowNum: 2,
+            rowList: [5, 10, 15],
+            multiselect: true,
+            colNames: ["编号", "标题", "大小", "时长", "上传时间", "专辑Id", "音频", "操作"],
+            colModel: [
+                {name: "id", hidden: true},
+                {name: "title", editable: true, editrules: {required: true}},
+                {name: "size"},
+                {name: "duration"},
+                {name: "createDate", editable: true, edittype: "date", editrules: {required: true}},
+                {name: "albumId", hidden: true},
+                {name: "url", editable: true, edittype: "file", editoptions: {enctype: "multipart/form-data"}},
+                {
+                    name: "url",
+                    formatter: function (cellvalue, options, rowObject) {
+                        var result = "";
+                        result += "<a href='javascript:void(0)' onclick=\"playAudio('" + cellvalue + "')\" class='btn btn-lg' title='播放'><span class='glyphicon glyphicon-play-circle'></span></a>";
+                        result += "<a href='javascript:void(0)' onclick=\"downloadAudio('" + cellvalue + "')\" class='btn btn-lg' title='下载'><span class='glyphicon glyphicon-download'></span></a>";
+                        return result;
+                    }
+                }
+            ],
+
+        }).jqGrid("navGrid", "#" + subGridPagerId, {},
+            {
+                closeAfterEdit: true,
+                beforeShowForm: function (form) {
+                    form.find("#createDate").attr("readOnly", true);
+                    form.find("#url").attr("disabled", true);
+                }
+            },
+            {
+                closeAfterAdd: true,
+                afterSubmit: function (response, posetData) {
+                    var chapterId = response.responseJSON.id;
+                    $.ajaxFileUpload({
+                        url: "/chapter/uploadChapter",
+                        datatype: "JSON",
+                        type: "POST",
+                        fileElementId: "url",
+                        data: {chapterId: chapterId},
+                        success: function (data) {
+                            ("#albumTable").trigger("reloadGrid");
+                        }
+                    })
+                    return posetData;
+                }
+            }
+        );
+        console.log(albumId);
+        //追加toolbar
+        $('#t_albumTable_0ee05392-7b76-11e9-bd6f-005056c00001table').append('<button class="btn btn-primary"  onclick="showChapter()">添加</button>')
+    };
+
+    // 播放音乐
+    function playAudio(url) {
+        $("#playAudioDiv").modal("show");
+        $("#playAudioId").attr("src", "/static/upload/audio/" + url);
+    }
+
+    //显示添加章节模态框
+    function showChapter() {
+        $('#myModal2').modal('show');
+        $("#modal_footer2").html('<button type="button" class="btn btn-primary" onclick="addChapter()">保存</button>\n' +
+            '<button type="button" class="btn btn-danger" data-dismiss="modal">取消</button>')
+    }
+
+    // 发送添加请求
+    function addChapter() {
+        var upload_name = $.trim($('#title').val());
+        var upload_title = $.trim($('#status').val());
+        var file_name = $('#file_name')[0].files[0];
+
+        var formData = new FormData();
+
+        formData.append("upload_name", upload_name);
+        formData.append("upload_title", upload_title);
+        formData.append("file_name", $('#file_name')[0].files[0]);
+
+        $.ajax({
+            url: '/album/addChapter/',
+            type: 'POST',
+            datatype: 'json',
+            data: formData,
+            processData: false, //使数据不做处理
+            contentType: false, //不要设置contentType请求头
+            success: function () {
+                $("#myModal2").modal('hide');
+            }
+        });
+    }
+
+
+</script>
+<div class="page-header">
+    <h2>专辑与章节管理</h2>
+</div>
+<ul class="nav nav-tabs">
+    <li class="active" style="font-weight: bold"><a>专辑与章节信息</a></li>
+</ul>
+<div id="playAudioDiv" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <audio id="playAudioId" src="" controls></audio>
+    </div>
+</div>
+<div class="panel panel-default">
+    <table id="albumTable"></table>
+    <div id="albumPager" style="width: auto;height: 50px"></div>
+</div>
+
+<div class="modal fade" id="myModal2" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="width:750px">
+            <!--模态框标题-->
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                <h4 class="modal-title">编辑章节信息</h4>
+            </div>
+
+            <!--模态框内容体-->
+            <div class="modal-body">
+                <form action="/article/editChapter/" class="form-horizontal"
+                      id="chapterForm">
+                    <div class="form-group">
+                        <label class="col-sm-1 control-label">标题</label>
+                        <div class="col-sm-5">
+                            <input type="text" name="title" id="title" placeholder="请输入标题" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-1 control-label">状态</label>
+                        <div class="col-sm-5">
+                            <select class="form-control" name="status" id="status">
+                                <option value="1">展示</option>
+                                <option value="2">不展示</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-1 control-label">文件</label>
+                        <div class="col-sm-5">
+                            <input type="file" name="file" id="file_name" placeholder="请选择文件" class="form-control">
+                        </div>
+                    </div>
+                    <input id="addInsertImg" name="insertImg" hidden>
+                </form>
+            </div>
+            <!--模态页脚-->
+            <div class="modal-footer" id="modal_footer2">
+
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,53 @@
+<!-- 为 ECharts 准备一个具备大小（宽高）的 DOM -->
+<div id="main" style="width: 600px;height:400px;"></div>
+
+<script type="text/javascript">
+    // 基于准备好的dom，初始化echarts实例
+    var myChart = echarts.init(document.getElementById('main'));
+
+    $.ajax({
+        url: "/user/getRegister",
+        dataType: 'json',
+        type: 'get',
+        success: function (data) {
+            myChart.setOption({
+                xAxis: {
+                    data: data.name
+                },
+                series: [{
+                    name: '销量',
+                    type: 'line',
+                    data: data.value
+                }, {
+                    name: '销量2',
+                    type: 'bar',
+                    data: data.value
+                }],
+            });
+        }
+
+    });
+
+    // 指定图表的配置项和数据
+    var option = {
+        title: {
+            text: '7天注册用户',
+            subtext: '副标题',
+            backgroundColor: "rgb(128, 128, 128)"
+        },
+        tooltip: {},
+        legend: {
+            type: 'scroll',
+            data: ['销量', '销量2']
+        },
+        left: 'center',
+        xAxis: {
+            data: []
+        },
+        yAxis: {},
+    };
+
+    // 使用刚指定的配置项和数据显示图表。
+    myChart.setOption(option);
+
+</script>

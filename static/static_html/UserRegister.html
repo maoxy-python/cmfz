@@ -1,0 +1,47 @@
+<!-- 为 ECharts 准备一个具备大小（宽高）的 DOM -->
+<div id="main" style="width: 600px;height:400px;"></div>
+<script>
+    // 基于准备好的dom，初始化echarts实例
+    var myChart = echarts.init(document.getElementById('main'));
+
+    // 指定图表的配置项和数据
+    var option = {
+        title: {
+            text: '最近七天注册的用户'
+        },
+        tooltip: {},
+        legend: {
+            data: ['注册人数']
+        },
+        xAxis: {
+            data: []
+        },
+        yAxis: {},
+        series: [{
+            name: '注册人数',
+            type: 'bar',
+            data: []
+        }]
+
+    };
+    // 使用刚指定的配置项和数据显示图表。
+    myChart.setOption(option);
+    $.ajax({
+        url: "/user/getRegister",
+        type: "get",
+        dataType: "json",
+        success: function (data) {
+            console.log(data);
+            myChart.setOption({
+                xAxis: {
+                    data: data.name
+                },
+                series: [{
+                    name: '注册人数',
+                    type: 'bar',
+                    data: data.value
+                }]
+            });
+        }
+    });
+</script>

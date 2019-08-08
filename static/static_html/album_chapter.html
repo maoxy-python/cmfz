@@ -1,0 +1,196 @@
+<script>
+    $(function () {
+        $("#albumTable").jqGrid({
+            url: "/album/getAllAlbum",
+            editurl: "${app}/album/editAlbum",
+            styleUI: "Bootstrap",
+            datatype: "JSON",
+            autowidth: true,
+            height: 500,
+            viewrecords: true,
+            pager: "#albumPager",
+            rowNum: 2,
+            rowList: [5, 10, 15],
+            rownumbers: true,
+            multiselect: true,
+            colNames: ["编号", "标题", "分数", "作者", "播音员", "章节数", "专辑简介", "状态", "发行时间", "上传时间", "插图"],
+            colModel: [
+                {name: "id", hidden: true},
+                {
+                    name: "title", editable: true,
+                    editrules: {required: true}
+                },
+                {
+                    name: "score", editable: true,
+                    editrules: {required: true, number: true, minValue: 1, maxValue: 10}
+                },
+                {
+                    name: "author", editable: true,
+                    editrules: {required: true}
+                },
+                {
+                    name: "broadcast", editable: true,
+                    editrules: {required: true}
+                },
+                {
+                    name: "count", editable: true,
+                    editrules: {required: true, number: true, minValue: 1}
+                },
+                {
+                    name: "brief", editable: true,
+                    editrules: {required: true}
+                },
+                {
+                    name: "status", editable: true, edittype: "select",
+                    editoptions: {
+                        value: "1:展示;2:不展示"
+                    }
+                },
+                {
+                    name: "publishDate", editable: true, edittype: "date",
+                    editrules: {required: true}
+                },
+                {
+                    name: "createDate", editable: true, edittype: "date",
+                    editrules: {required: true}
+                },
+                {
+                    name: "cover", editable: true, edittype: "file",
+                    editoptions: {
+                        enctype: "multipart/form-data"
+                    },
+                    formatter: function (cellvalue, options, rowObject) {
+                        return "<img style='height: 80px;width: 180px' src='/static/upload/" + cellvalue + " '/>"
+                    }
+                }
+            ],
+
+            subGrid: true,//1.开启子表格支持
+            //子表格的id；当子表格展开的时候，在主表格中会创建一个div元素用来容纳子表格，subgrid_id就是这个div的id
+            subGridRowExpanded: function (subGridId, albumId) {//2.子表格容器的id和需要展开子表格的行id
+                addSubGrid(subGridId, albumId);
+            }
+        }).jqGrid("navGrid", "#albumPager", {add: true, edit: true, del: true, search: true, refresh: true, edittext: "编辑", addtext: "添加", deltext: "删除"
+            },
+            {closeAfterEdit: true,
+                beforeShowForm: function (form) {
+                    form.find("#publishDate").attr("readOnly", true);
+                    form.find("#createDate").attr("readOnly", true);
+                    form.find("#cover").attr("disabled", true);
+                }
+            },
+            {closeAfterAdd: true,
+                afterSubmit: function (response, postData) {
+                    var id = response.responseJSON.id;
+                    $.ajaxFileUpload({
+                        url: "${app}/album/uploadAudio",
+                        datatype: "JSON",
+                        type: "POST",
+                        fileElementId: "cover",
+                        data: {id: id},
+                        success: function (data) {
+                            $("#albumTable").trigger("reloadGrid");
+                        }
+                    });
+                    return postData;
+                }
+            }
+        )
+    })
+
+    function addSubGrid(subGridId, albumId) {
+        sunGiridTableId = subGridId + "table";// (3)根据subgrid_id定义对应的子表格的table的id
+        subGridPagerId = subGridId + "pager" // (4)根据subgrid_id定义对应的子表格的pager的id
+        $("#" + subGridId).html(
+            "<table id='" + sunGiridTableId + "'></table><div id='" + subGridPagerId + "'></div>"
+        );
+        $("#" + sunGiridTableId).jqGrid({
+            url: "${app}/chapter/getChapterByAlbumId?albumId=" + albumId,
+            editurl: "${app}/chapter/editChapter?albumId=" + albumId,
+            styleUI: "Bootstrap",
+            datatype: "JSON",
+            autowidth: true,
+            viewrecords: true,
+            pager: "#" + subGridPagerId,
+            rowNum: 2,
+            rowList: [5, 10, 15],
+            multiselect: true,
+            colNames: ["编号", "标题", "大小", "时长", "上传时间", "专辑Id", "音频", "操作"],
+            colModel: [
+                {name: "id", hidden: true},
+                {
+                    name: "title", editable: true,
+                    editrules: {required: true}
+                },
+                {name: "size"},
+                {name: "duration"},
+                {
+                    name: "createDate", editable: true, edittype: "date",
+                    editrules: {required: true}
+                },
+                {name: "albumId", hidden: true},
+                {
+                    name: "url", editable: true, edittype: "file",
+                    editoptions: {enctype: "multipart/form-data"}
+                },
+                {
+                    name: "url",
+                    formatter: function (cellvalue, options, rowObject) {
+                        var result = "";
+                        result += "<a href='javascript:void(0)' onclick=\"playAudio('" + cellvalue + "')\" class='btn btn-lg' title='播放'><span class='glyphicon glyphicon-play-circle'></span></a>";
+                        result += "<a href='javascript:void(0)' onclick=\"downloadAudio('" + cellvalue + "')\" class='btn btn-lg' title='下载'><span class='glyphicon glyphicon-download'></span></a>";
+                        return result;
+                    }
+                }
+            ],
+        }).jqGrid("navGrid", "#" + subGridPagerId, {add: true, edit: true, del: true, search: true, refresh: true, edittext: "编辑", addtext: "添加", deltext: "删除"},
+            {closeAfterEdit: true,
+                beforeShowForm: function (form) {
+                    form.find("#createDate").attr("readOnly", true);
+                    form.find("#url").attr("disabled", true);
+                }
+            },
+            {closeAfterAdd: true,
+                afterSubmit: function (response, posetData) {
+                    var chapterId = response.responseJSON.id;
+                    $.ajaxFileUpload({
+                        url: "${app}/chapter/uploadChapter",
+                        datatype: "JSON",
+                        type: "POST",
+                        fileElementId: "url",
+                        data: {chapterId: chapterId},
+                        success: function (data) {
+                            ("#albumTable").trigger("reloadGrid");
+                        }
+                    });
+                    return posetData;
+                }
+            }
+        )
+    }
+
+    function playAudio(url) {
+        $("#playAudioDiv").modal("show");
+        $("#playAudioId").attr("src", "${app}/upload/audio/" + url);
+    }
+
+    function downloadAudio(url) {
+        location.href = "${app}/chapter/downloadChapter?url=" + url;
+    }
+
+</script>
+<div class="page-header">
+    <h2>专辑与章节管理</h2>
+</div>
+<ul class="nav nav-tabs">
+    <li class="active" style="font-weight: bold"><a>专辑与章节信息</a></li>
+</ul>
+<div id="playAudioDiv" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <audio id="playAudioId" src="" controls></audio>
+    </div>
+</div>
+<div class="panel panel-default">
+    <table id="albumTable"></table>
+    <div id="albumPager" style="width: auto;height: 50px"></div>
+</div>
